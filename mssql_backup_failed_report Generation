@@ -102,6 +102,49 @@ select distinct bkp_t1.Servername,bkp_t1.DBname, (SELECT  CONVERT(varchar(25),MA
 	--select SQLInstanceName,DatabaseName,LastFullBackup, LastDiffBackup, LastBackupHrs, Status from SysAdmin..Failed_Bkps --order by NotBackedUpSince desc 
 END
 
+						    
+*******************************************
+Below given is the powershell for invoking it
+						    
+						    
+						    
+Remove-Item D:\BackupReport\FailedBackup_$((Get-Date).AddDays(-1).ToString('dd_MM_yyyy')).txt
+
+$servers = Get-Content -Path D:\BackupReport\BackupServers.txt ---- Server List
+  
+Foreach ($dataSource in $servers) 
+{
+    $sqlCommand = $("EXEC BackupStatusReport") 
+    $connectionString = "Data Source=$dataSource; " + "Integrated Security=SSPI; " + "Initial Catalog='SysAdmin'"
+    $connection = new-object system.data.SqlClient.SQLConnection($connectionString)
+    $command = new-object system.data.sqlclient.sqlcommand($sqlCommand,$connection)
+    $command.CommandTimeout=60
+    $connection.Open()
+    $adapter = New-Object System.Data.sqlclient.sqlDataAdapter $command
+    $dataset = New-Object System.Data.DataSet
+    write-output $adapter.Fill($dataSet) | Format-Table
+    $connection.Close() 
+    $out=$dataSet.Tables | Format-Table -AutoSize | Out-File -Filepath D:\BackupReport\FailedBackup_$(get-date -f dd_MM_yyyy).txt -Append  
+}    
+
+$From = 'mail id'
+$To = 'mail id'
+$Cc ='mail id'
+$Attachment = 'D:\BackupReport\FailedBackup_' +$(get-date -f dd_MM_yyyy) +'.txt'
+$Subject = 'Databases not backed up within 24 hrs'
+$Body = 'Hi,
+
+This backup report has backups for all the SQL server databases in AB Datacenter. 
+
+The attched Databases are not backed up in last 24hrs. 
+
+Please do the needful.
+
+Note: This attachment will be empty if we dont have any backup failures for the day.' 
+$SMTPServer = ''
+$SMTPPort = '25'
+Send-MailMessage -From $From -to $To -Cc $Cc -Subject $Subject -Body $Body -SmtpServer $SMTPServer -port $SMTPPort -Attachments $Attachment -Priority High
+
 
 
 
